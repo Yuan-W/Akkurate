@@ -5,8 +5,8 @@ use crate::config::{load_config, save_config, AppConfig};
 use crate::core::PresetManager;
 use crate::ui::i18n::Language;
 use iced::widget::{
-    button, column, container, horizontal_rule, horizontal_space, pick_list, row, scrollable,
-    text, text_editor, text_input, vertical_space,
+    button, column, container, horizontal_rule, horizontal_space, pick_list, row, scrollable, text,
+    text_editor, text_input, vertical_space,
 };
 use iced::{Element, Length, Padding, Subscription, Task, Theme};
 
@@ -35,7 +35,7 @@ pub struct App {
     api_key_input: String,
     theme_preference: String,
     language: Language,
-    
+
     // Clipboard message
     clipboard_msg: Option<String>,
 }
@@ -80,7 +80,7 @@ pub enum Message {
     ThemeChanged(String),
     LanguageChanged(Language),
     ToggleSetupGuide,
-    
+
     // Clear clipboard message
     ClearClipboardMsg,
 }
@@ -255,7 +255,10 @@ impl App {
                             output.push_str(s.no_issues);
                             output.push_str("\n\n");
                         } else {
-                            output.push_str(&s.found_issues.replace("{}", &check_result.issues.len().to_string()));
+                            output.push_str(
+                                &s.found_issues
+                                    .replace("{}", &check_result.issues.len().to_string()),
+                            );
                             output.push_str("\n\n");
                             for (i, issue) in check_result.issues.iter().enumerate() {
                                 output.push_str(&format!(
@@ -380,7 +383,7 @@ impl App {
                 self.show_setup_guide = !self.show_setup_guide;
                 Task::none()
             }
-            
+
             Message::ClearClipboardMsg => {
                 self.clipboard_msg = None;
                 Task::none()
@@ -388,7 +391,7 @@ impl App {
 
             Message::PasteAndCheck => {
                 tracing::info!("PasteAndCheck triggered");
-                
+
                 // Try arboard first, then fall back to wl-paste for Wayland
                 let clipboard_text = arboard::Clipboard::new()
                     .and_then(|mut cb| cb.get_text())
@@ -397,11 +400,16 @@ impl App {
                         std::process::Command::new("wl-paste")
                             .arg("--no-newline")
                             .output()
-                            .map_err(|e| arboard::Error::Unknown { description: e.to_string() })
+                            .map_err(|e| arboard::Error::Unknown {
+                                description: e.to_string(),
+                            })
                             .and_then(|output| {
                                 if output.status.success() {
-                                    String::from_utf8(output.stdout)
-                                        .map_err(|e| arboard::Error::Unknown { description: e.to_string() })
+                                    String::from_utf8(output.stdout).map_err(|e| {
+                                        arboard::Error::Unknown {
+                                            description: e.to_string(),
+                                        }
+                                    })
                                 } else {
                                     Err(arboard::Error::ContentNotAvailable)
                                 }
@@ -446,7 +454,7 @@ impl App {
         };
 
         if self.current_view == View::Popup {
-             container(content)
+            container(content)
                 .width(Length::Fill)
                 .height(Length::Fill)
                 .padding(10)
@@ -481,8 +489,12 @@ impl App {
             self.nav_button(s.nav_help, View::Help),
             horizontal_space(),
             container(
-                text(format!("{}: {}", s.current_style, s.preset_display_name(&self.selected_preset)))
-                    .size(13)
+                text(format!(
+                    "{}: {}",
+                    s.current_style,
+                    s.preset_display_name(&self.selected_preset)
+                ))
+                .size(13)
             )
             .padding(Padding::from([6, 12]))
             .style(container::rounded_box),
@@ -524,9 +536,13 @@ impl App {
 
         let preset_picker = row![
             text(format!("{}:", s.style_preset)).size(13),
-            pick_list(preset_keys, Some(self.selected_preset.clone()), Message::PresetSelected)
-                .placeholder(s.select_preset)
-                .text_size(13),
+            pick_list(
+                preset_keys,
+                Some(self.selected_preset.clone()),
+                Message::PresetSelected
+            )
+            .placeholder(s.select_preset)
+            .text_size(13),
         ]
         .spacing(8)
         .align_y(iced::Alignment::Center);
@@ -557,14 +573,36 @@ impl App {
 
         // Action buttons with modern styling
         let action_buttons = row![
-            button(text(if self.is_loading { s.processing } else { s.check_grammar }).size(14))
-                .style(button::primary)
-                .padding(Padding::from([10, 20]))
-                .on_press_maybe(if self.is_loading { None } else { Some(Message::CheckGrammar) }),
-            button(text(if self.is_loading { s.processing } else { s.enhance_text }).size(14))
-                .style(button::success)
-                .padding(Padding::from([10, 20]))
-                .on_press_maybe(if self.is_loading { None } else { Some(Message::EnhanceText) }),
+            button(
+                text(if self.is_loading {
+                    s.processing
+                } else {
+                    s.check_grammar
+                })
+                .size(14)
+            )
+            .style(button::primary)
+            .padding(Padding::from([10, 20]))
+            .on_press_maybe(if self.is_loading {
+                None
+            } else {
+                Some(Message::CheckGrammar)
+            }),
+            button(
+                text(if self.is_loading {
+                    s.processing
+                } else {
+                    s.enhance_text
+                })
+                .size(14)
+            )
+            .style(button::success)
+            .padding(Padding::from([10, 20]))
+            .on_press_maybe(if self.is_loading {
+                None
+            } else {
+                Some(Message::EnhanceText)
+            }),
         ]
         .spacing(12);
 
@@ -589,13 +627,11 @@ impl App {
                     .on_press(Message::CopyResult),
             ]
             .align_y(iced::Alignment::Center),
-            container(
-                scrollable(
-                    container(text(&self.result_text).size(13))
-                        .padding(12)
-                        .width(Length::Fill)
-                )
-            )
+            container(scrollable(
+                container(text(&self.result_text).size(13))
+                    .padding(12)
+                    .width(Length::Fill)
+            ))
             .height(180)
             .style(container::bordered_box),
         ]
@@ -664,12 +700,8 @@ impl App {
             .align_y(iced::Alignment::Center),
             row![
                 text(format!("{}:", s.language)).size(13),
-                pick_list(
-                    lang_options,
-                    Some(self.language),
-                    Message::LanguageChanged
-                )
-                .text_size(13),
+                pick_list(lang_options, Some(self.language), Message::LanguageChanged)
+                    .text_size(13),
             ]
             .spacing(8)
             .align_y(iced::Alignment::Center),
@@ -721,12 +753,10 @@ impl App {
             column![
                 text(label).size(14),
                 row![
-                    container(
-                        text(cmd).size(12)
-                    )
-                    .padding(Padding::from([8, 12]))
-                    .style(container::bordered_box)
-                    .width(Length::Fill),
+                    container(text(cmd).size(12))
+                        .padding(Padding::from([8, 12]))
+                        .style(container::bordered_box)
+                        .width(Length::Fill),
                     button(text(s.copy_cmd).size(12))
                         .style(button::secondary)
                         .on_press(Message::CopyCommand(cmd.to_string())),
@@ -800,23 +830,21 @@ impl App {
 
         // Compact result area
         let result_area: Element<Message> = if !self.result_text.is_empty() {
-             column![
+            column![
                 row![
                     text(s.result).size(13),
                     horizontal_space(),
-                     button(text(s.copy_result).size(12))
+                    button(text(s.copy_result).size(12))
                         .style(button::secondary)
                         .padding(Padding::from([4, 8]))
                         .on_press(Message::CopyResult),
                 ]
                 .align_y(iced::Alignment::Center),
-                container(
-                    scrollable(
-                        container(text(&self.result_text).size(13))
-                            .padding(8)
-                            .width(Length::Fill)
-                    )
-                )
+                container(scrollable(
+                    container(text(&self.result_text).size(13))
+                        .padding(8)
+                        .width(Length::Fill)
+                ))
                 .height(Length::Fill) // Fill remaining space
                 .style(container::bordered_box),
             ]
@@ -828,22 +856,28 @@ impl App {
 
         // Compact input area
         let input_area = column![
-             container(
+            container(
                 text_editor(&self.input_content)
                     .on_action(Message::InputChanged)
                     .height(Length::Fixed(100.0))
             )
             .style(container::bordered_box),
             row![
-                 // Compact preset picker
-                 text(format!("{}:", s.style_preset)).size(12),
-                 pick_list(
-                    self.preset_manager.keys().into_iter().cloned().collect::<Vec<_>>(),
+                // Compact preset picker
+                text(format!("{}:", s.style_preset)).size(12),
+                pick_list(
+                    self.preset_manager
+                        .keys()
+                        .into_iter()
+                        .cloned()
+                        .collect::<Vec<_>>(),
                     Some(self.selected_preset.clone()),
                     Message::PresetSelected
-                 ).text_size(12).padding(4),
-                 horizontal_space(),
-                 button(text(s.clear).size(12))
+                )
+                .text_size(12)
+                .padding(4),
+                horizontal_space(),
+                button(text(s.clear).size(12))
                     .style(button::secondary)
                     .padding(Padding::from([4, 8]))
                     .on_press(Message::ClearAll),
@@ -855,16 +889,38 @@ impl App {
 
         // Compact actions
         let action_buttons = row![
-            button(text(if self.is_loading { s.processing } else { s.check_grammar }).size(13))
-                .style(button::primary)
-                .width(Length::Fill)
-                .padding(Padding::from([8, 0]))
-                .on_press_maybe(if self.is_loading { None } else { Some(Message::CheckGrammar) }),
-            button(text(if self.is_loading { s.processing } else { s.enhance_text }).size(13))
-                .style(button::success)
-                .width(Length::Fill)
-                .padding(Padding::from([8, 0]))
-                .on_press_maybe(if self.is_loading { None } else { Some(Message::EnhanceText) }),
+            button(
+                text(if self.is_loading {
+                    s.processing
+                } else {
+                    s.check_grammar
+                })
+                .size(13)
+            )
+            .style(button::primary)
+            .width(Length::Fill)
+            .padding(Padding::from([8, 0]))
+            .on_press_maybe(if self.is_loading {
+                None
+            } else {
+                Some(Message::CheckGrammar)
+            }),
+            button(
+                text(if self.is_loading {
+                    s.processing
+                } else {
+                    s.enhance_text
+                })
+                .size(13)
+            )
+            .style(button::success)
+            .width(Length::Fill)
+            .padding(Padding::from([8, 0]))
+            .on_press_maybe(if self.is_loading {
+                None
+            } else {
+                Some(Message::EnhanceText)
+            }),
         ]
         .spacing(8);
 
@@ -879,13 +935,8 @@ impl App {
             column![].into()
         };
 
-        column![
-            input_area,
-            action_buttons,
-            error_view,
-            result_area,
-        ]
-        .spacing(8)
-        .into()
+        column![input_area, action_buttons, error_view, result_area,]
+            .spacing(8)
+            .into()
     }
 }

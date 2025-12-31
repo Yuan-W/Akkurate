@@ -30,7 +30,9 @@ impl PresetManager {
                 name: "Casual".to_string(),
                 tone: "friendly, conversational".to_string(),
                 formality: "informal".to_string(),
-                instructions: "Use simple words, contractions are okay, keep it natural and relaxed".to_string(),
+                instructions:
+                    "Use simple words, contractions are okay, keep it natural and relaxed"
+                        .to_string(),
             },
         );
 
@@ -40,7 +42,8 @@ impl PresetManager {
                 name: "Business".to_string(),
                 tone: "professional, polite".to_string(),
                 formality: "formal".to_string(),
-                instructions: "Clear and concise, avoid slang, maintain professional courtesy".to_string(),
+                instructions: "Clear and concise, avoid slang, maintain professional courtesy"
+                    .to_string(),
             },
         );
 
@@ -50,7 +53,9 @@ impl PresetManager {
                 name: "Academic".to_string(),
                 tone: "objective, analytical".to_string(),
                 formality: "highly formal".to_string(),
-                instructions: "Use precise terminology, passive voice acceptable, maintain scholarly tone".to_string(),
+                instructions:
+                    "Use precise terminology, passive voice acceptable, maintain scholarly tone"
+                        .to_string(),
             },
         );
 
@@ -60,7 +65,8 @@ impl PresetManager {
                 name: "Creative".to_string(),
                 tone: "expressive, vivid".to_string(),
                 formality: "flexible".to_string(),
-                instructions: "Encourage creativity, use varied sentence structures, be engaging".to_string(),
+                instructions: "Encourage creativity, use varied sentence structures, be engaging"
+                    .to_string(),
             },
         );
 
@@ -73,16 +79,14 @@ impl PresetManager {
             return Ok(());
         }
 
-        let content = std::fs::read_to_string(path)
-            .context("Failed to read presets file")?;
+        let content = std::fs::read_to_string(path).context("Failed to read presets file")?;
 
         #[derive(Deserialize)]
         struct PresetsFile {
             presets: HashMap<String, StylePreset>,
         }
 
-        let file: PresetsFile = toml::from_str(&content)
-            .context("Failed to parse presets file")?;
+        let file: PresetsFile = toml::from_str(&content).context("Failed to parse presets file")?;
 
         self.presets.extend(file.presets);
         Ok(())

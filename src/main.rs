@@ -41,11 +41,11 @@ fn main() -> iced::Result {
     tracing::info!("Starting Akkurate...");
 
     let args = Args::parse();
-    
+
     // Compute flags before consuming args
     let has_check = args.check.is_some();
     let has_enhance = args.enhance.is_some();
-    
+
     // Get text from selection if --check-selection is used
     let initial_text = if args.check_selection {
         match get_selection() {
@@ -65,7 +65,7 @@ fn main() -> iced::Result {
     let is_popup = initial_text.is_some();
     let auto_check = args.check_selection || has_check;
     let auto_enhance = has_enhance;
-    
+
     let (window_size, resizable, decorations) = if is_popup {
         ((500.0, 600.0), true, true)
     } else {
@@ -90,4 +90,3 @@ fn main() -> iced::Result {
         .decorations(decorations)
         .run_with(|| App::new(flags))
 }
-

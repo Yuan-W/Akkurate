@@ -2,4 +2,4 @@
 
 pub mod settings;
 
-pub use settings::{AppConfig, load_config, save_config, config_path};
+pub use settings::{config_path, load_config, save_config, AppConfig};

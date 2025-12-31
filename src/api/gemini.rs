@@ -145,13 +145,19 @@ Text to check:
             .clone();
 
         let json_str = self.extract_json(&text_response);
-        let result: CheckResult = serde_json::from_str(&json_str).context("Failed to parse JSON")?;
+        let result: CheckResult =
+            serde_json::from_str(&json_str).context("Failed to parse JSON")?;
 
         Ok(result)
     }
 
     /// Enhance text based on a preset style
-    pub async fn enhance_text(&self, text: &str, preset: &crate::core::StylePreset, lang: &str) -> Result<EnhanceResult> {
+    pub async fn enhance_text(
+        &self,
+        text: &str,
+        preset: &crate::core::StylePreset,
+        lang: &str,
+    ) -> Result<EnhanceResult> {
         let prompt = format!(
             r#"Please act as a professional writing editor. Enhance the following text to match the style: "{}".
 Description of style: {}.
@@ -197,7 +203,8 @@ Text to enhance:
             .clone();
 
         let json_str = self.extract_json(&text_response);
-        let result: EnhanceResult = serde_json::from_str(&json_str).context("Failed to parse JSON")?;
+        let result: EnhanceResult =
+            serde_json::from_str(&json_str).context("Failed to parse JSON")?;
 
         Ok(result)
     }

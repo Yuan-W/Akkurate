@@ -14,7 +14,11 @@ impl GrammarChecker {
     }
 
     /// Check grammar for the given text
-    pub async fn check_grammar(&self, text: &str, lang: &str) -> anyhow::Result<crate::api::CheckResult> {
+    pub async fn check_grammar(
+        &self,
+        text: &str,
+        lang: &str,
+    ) -> anyhow::Result<crate::api::CheckResult> {
         self.client.check_grammar(text, lang).await
     }
 }
