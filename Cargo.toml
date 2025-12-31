@@ -20,6 +20,8 @@ iced = { version = "0.13", features = ["tokio"] }
 
 # System integration
 arboard = "3"           # Clipboard (Wayland support)
+
+[target.'cfg(target_os = "linux")'.dependencies]
 ksni = "0.2"            # System tray (SNI/Wayland)
 
 # Config

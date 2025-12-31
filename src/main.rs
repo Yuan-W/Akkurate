@@ -22,6 +22,7 @@ struct Args {
 }
 
 /// Read PRIMARY selection using wl-paste
+#[cfg(target_os = "linux")]
 fn get_selection() -> Option<String> {
     std::process::Command::new("wl-paste")
         .args(["--primary", "--no-newline"])
@@ -30,6 +31,11 @@ fn get_selection() -> Option<String> {
         .filter(|o| o.status.success())
         .and_then(|o| String::from_utf8(o.stdout).ok())
         .filter(|s| !s.trim().is_empty())
+}
+
+#[cfg(not(target_os = "linux"))]
+fn get_selection() -> Option<String> {
+    None
 }
 
 fn main() -> iced::Result {
