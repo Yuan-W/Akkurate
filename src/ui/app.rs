@@ -397,7 +397,7 @@ impl App {
                     .and_then(|mut cb| cb.get_text())
                     .or_else(|e| {
                         tracing::info!("arboard failed: {:?}, trying fallback", e);
-                        
+
                         #[cfg(target_os = "linux")]
                         {
                             std::process::Command::new("wl-paste")
@@ -418,7 +418,7 @@ impl App {
                                     }
                                 })
                         }
-                        
+
                         #[cfg(not(target_os = "linux"))]
                         {
                             Err(e)
