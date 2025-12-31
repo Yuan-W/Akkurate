@@ -21,8 +21,6 @@ iced = { version = "0.13", features = ["tokio"] }
 # System integration
 arboard = "3"           # Clipboard (Wayland support)
 
-[target.'cfg(target_os = "linux")'.dependencies]
-ksni = "0.2"            # System tray (SNI/Wayland)
 
 # Config
 toml = "0.8"
@@ -34,3 +32,6 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 anyhow = "1"
 thiserror = "2"
 clap = { version = "4.5.53", features = ["derive"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+ksni = "0.2"            # System tray (SNI/Wayland)

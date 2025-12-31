@@ -396,24 +396,33 @@ impl App {
                 let clipboard_text = arboard::Clipboard::new()
                     .and_then(|mut cb| cb.get_text())
                     .or_else(|e| {
-                        tracing::info!("arboard failed: {:?}, trying wl-paste", e);
-                        std::process::Command::new("wl-paste")
-                            .arg("--no-newline")
-                            .output()
-                            .map_err(|e| arboard::Error::Unknown {
-                                description: e.to_string(),
-                            })
-                            .and_then(|output| {
-                                if output.status.success() {
-                                    String::from_utf8(output.stdout).map_err(|e| {
-                                        arboard::Error::Unknown {
-                                            description: e.to_string(),
-                                        }
-                                    })
-                                } else {
-                                    Err(arboard::Error::ContentNotAvailable)
-                                }
-                            })
+                        tracing::info!("arboard failed: {:?}, trying fallback", e);
+                        
+                        #[cfg(target_os = "linux")]
+                        {
+                            std::process::Command::new("wl-paste")
+                                .arg("--no-newline")
+                                .output()
+                                .map_err(|e| arboard::Error::Unknown {
+                                    description: e.to_string(),
+                                })
+                                .and_then(|output| {
+                                    if output.status.success() {
+                                        String::from_utf8(output.stdout).map_err(|e| {
+                                            arboard::Error::Unknown {
+                                                description: e.to_string(),
+                                            }
+                                        })
+                                    } else {
+                                        Err(arboard::Error::ContentNotAvailable)
+                                    }
+                                })
+                        }
+                        
+                        #[cfg(not(target_os = "linux"))]
+                        {
+                            Err(e)
+                        }
                     });
 
                 match clipboard_text {
