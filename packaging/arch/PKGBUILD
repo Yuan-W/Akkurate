@@ -1,0 +1,40 @@
+# Maintainer: Your Name <your@email.com>
+pkgname=akkurate
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="AI-powered grammar assistant for Linux (Wayland-first)"
+arch=('x86_64')
+url="https://github.com/yourusername/akkurate"
+license=('MIT')
+depends=('wl-clipboard' 'openssl' 'fontconfig' 'freetype2')
+makedepends=('rust' 'cargo')
+optdepends=('vulkan-icd-loader: GPU acceleration')
+
+# Build from parent project directory
+_srcdir="$startdir/../.."
+
+build() {
+    cd "$_srcdir"
+    cargo build --release --locked
+}
+
+package() {
+    cd "$_srcdir"
+    
+    # Binary
+    install -Dm755 "target/release/akkurate" "$pkgdir/usr/bin/akkurate"
+    
+    # Desktop file
+    install -Dm644 /dev/stdin "$pkgdir/usr/share/applications/akkurate.desktop" << EOF
+[Desktop Entry]
+Name=Akkurate
+Name[zh_CN]=Akkurate 语法助手
+Comment=AI-powered grammar assistant
+Comment[zh_CN]=AI 驱动的语法检查工具
+Exec=akkurate
+Icon=accessories-text-editor
+Type=Application
+Categories=Office;TextTools;
+Keywords=grammar;writing;english;
+EOF
+}

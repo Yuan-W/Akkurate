@@ -1,6 +1,21 @@
 # Rust/Cargo
 /target/
-Cargo.lock
+
+# Build artifacts
+*.so
+*.dylib
+*.dll
+*.exe
+*.pkg.tar.zst
+*.tar.gz
+*.zip
+
+# Release directories
+akkurate-*/
+
+# makepkg directories (in packaging/arch/)
+packaging/arch/pkg/
+packaging/arch/src/
 
 # IDE
 .idea/
@@ -8,18 +23,19 @@ Cargo.lock
 *.swp
 *.swo
 *~
+.vs/
 
 # OS
 .DS_Store
 Thumbs.db
+Desktop.ini
 
 # Logs
 *.log
 
-# Build artifacts
-*.so
-*.dylib
-*.dll
-
-# Config with secrets
+# Config with secrets (user config)
 config.toml
+
+# Debug files
+*.pdb
+*.dSYM/
