@@ -25,7 +25,9 @@ pub struct App {
     // UI state
     current_view: View,
     input_content: text_editor::Content,
-    result_text: String,
+    explanation_text: String,
+    result_text: text_editor::Content,
+    tail_text: String,
     selected_preset: String,
     is_loading: bool,
     error_message: Option<String>,
@@ -56,6 +58,7 @@ pub enum Message {
 
     // Input handling
     InputChanged(text_editor::Action),
+    ResultAction(text_editor::Action),
     PresetSelected(String),
 
     // Actions
@@ -135,7 +138,9 @@ impl App {
             preset_manager,
             current_view: initial_view,
             input_content: text_editor::Content::new(),
-            result_text: String::new(),
+            explanation_text: String::new(),
+            result_text: text_editor::Content::new(),
+            tail_text: String::new(),
             is_loading: false,
             error_message: None,
             show_setup_guide,
@@ -186,6 +191,14 @@ impl App {
 
             Message::InputChanged(action) => {
                 self.input_content.perform(action);
+                Task::none()
+            }
+
+            Message::ResultAction(action) => {
+                if action.is_edit() {
+                    return Task::none();
+                }
+                self.result_text.perform(action);
                 Task::none()
             }
 
@@ -273,9 +286,10 @@ impl App {
                         }
                         output.push_str("---\n");
                         output.push_str(s.corrected_text);
-                        output.push_str("\n\n");
-                        output.push_str(&check_result.corrected_text);
-                        self.result_text = output;
+
+                        self.explanation_text = output;
+                        self.result_text =
+                            text_editor::Content::with_text(&check_result.corrected_text);
                     }
                     Err(e) => {
                         self.error_message = Some(format!("{}: {}", self.s().error_prefix, e));
@@ -289,17 +303,20 @@ impl App {
                 match result {
                     Ok(enhance_result) => {
                         let s = self.s();
-                        let mut output = String::new();
-                        output.push_str(s.enhanced_text);
-                        output.push_str("\n\n");
-                        output.push_str(&enhance_result.enhanced_text);
-                        output.push_str("\n\n---\n");
-                        output.push_str(s.changes_made);
-                        output.push_str("\n\n");
+                        let mut explanation = String::new();
+                        explanation.push_str(s.enhanced_text);
+
+                        let mut changes = String::new();
+                        changes.push_str(s.changes_made);
+                        changes.push_str("\n\n");
                         for change in &enhance_result.changes_made {
-                            output.push_str(&format!("* {}\n", change));
+                            changes.push_str(&format!("* {}\n", change));
                         }
-                        self.result_text = output;
+
+                        self.explanation_text = explanation;
+                        self.result_text =
+                            text_editor::Content::with_text(&enhance_result.enhanced_text);
+                        self.tail_text = changes;
                     }
                     Err(e) => {
                         self.error_message = Some(format!("{}: {}", self.s().error_prefix, e));
@@ -309,9 +326,60 @@ impl App {
             }
 
             Message::CopyResult => {
-                if !self.result_text.is_empty() {
-                    if let Ok(mut clipboard) = arboard::Clipboard::new() {
-                        let _ = clipboard.set_text(&self.result_text);
+                let text = self.result_text.text();
+                if !text.is_empty() {
+                    let mut success = false;
+
+                    // On Linux, try wl-copy FIRST because arboard returns false positives on Wayland
+                    #[cfg(target_os = "linux")]
+                    {
+                        tracing::info!("Running on Linux, attempting wl-copy first");
+                        use std::io::Write;
+                        use std::process::{Command, Stdio};
+
+                        if let Ok(mut child) = Command::new("wl-copy").stdin(Stdio::piped()).spawn()
+                        {
+                            if let Some(mut stdin) = child.stdin.take() {
+                                if stdin.write_all(text.as_bytes()).is_ok() {
+                                    tracing::info!("wl-copy write successful");
+                                    success = true;
+                                } else {
+                                    tracing::warn!("wl-copy write failed");
+                                }
+                            }
+                            let _ = child.wait();
+                        } else {
+                            tracing::warn!("Failed to spawn wl-copy");
+                        }
+                    }
+
+                    // Try arboard if wl-copy failed (or if not on Linux)
+                    if !success {
+                        tracing::info!("Attempting arboard copy (fallback/primary)");
+                        if let Ok(mut clipboard) = arboard::Clipboard::new() {
+                            if clipboard.set_text(&text).is_ok() {
+                                tracing::info!("arboard copy successful");
+                                success = true;
+                            } else {
+                                tracing::warn!("arboard copy failed");
+                            }
+                        } else {
+                            tracing::warn!("Failed to initialize arboard clipboard");
+                        }
+                    }
+
+                    if success {
+                        self.clipboard_msg = Some(if self.language == Language::Chinese {
+                            "已复制!".to_string()
+                        } else {
+                            "Copied!".to_string()
+                        });
+                    } else {
+                        self.clipboard_msg = Some(if self.language == Language::Chinese {
+                            "复制失败".to_string()
+                        } else {
+                            "Copy Failed".to_string()
+                        });
                     }
                 }
                 Task::none()
@@ -330,17 +398,18 @@ impl App {
             }
 
             Message::PasteFromClipboard => {
-                if let Ok(mut clipboard) = arboard::Clipboard::new() {
-                    if let Ok(text) = clipboard.get_text() {
-                        self.input_content = text_editor::Content::with_text(&text);
-                    }
+                let text = get_clipboard_text();
+                if let Some(text) = text {
+                    self.input_content = text_editor::Content::with_text(&text);
                 }
                 Task::none()
             }
 
             Message::ClearAll => {
                 self.input_content = text_editor::Content::new();
-                self.result_text.clear();
+                self.explanation_text.clear();
+                self.result_text = text_editor::Content::new();
+                self.tail_text.clear();
                 self.error_message = None;
                 Task::none()
             }
@@ -392,62 +461,26 @@ impl App {
             Message::PasteAndCheck => {
                 tracing::info!("PasteAndCheck triggered");
 
-                // Try arboard first, then fall back to wl-paste for Wayland
-                let clipboard_text = arboard::Clipboard::new()
-                    .and_then(|mut cb| cb.get_text())
-                    .or_else(|e| {
-                        tracing::info!("arboard failed: {:?}, trying fallback", e);
-
-                        #[cfg(target_os = "linux")]
-                        {
-                            std::process::Command::new("wl-paste")
-                                .arg("--no-newline")
-                                .output()
-                                .map_err(|e| arboard::Error::Unknown {
-                                    description: e.to_string(),
-                                })
-                                .and_then(|output| {
-                                    if output.status.success() {
-                                        String::from_utf8(output.stdout).map_err(|e| {
-                                            arboard::Error::Unknown {
-                                                description: e.to_string(),
-                                            }
-                                        })
-                                    } else {
-                                        Err(arboard::Error::ContentNotAvailable)
-                                    }
-                                })
-                        }
-
-                        #[cfg(not(target_os = "linux"))]
-                        {
-                            Err(e)
-                        }
-                    });
-
-                match clipboard_text {
-                    Ok(text) if !text.is_empty() => {
+                match get_clipboard_text() {
+                    Some(text) if !text.is_empty() => {
                         tracing::info!("Clipboard text length: {} chars", text.len());
                         self.input_content = text_editor::Content::with_text(&text);
                         return Task::perform(async {}, |_| Message::CheckGrammar);
                     }
-                    Ok(_) => {
+                    Some(_) => {
                         self.error_message = Some("剪切板为空".to_string());
                     }
-                    Err(e) => {
-                        tracing::warn!("All clipboard methods failed: {:?}", e);
-                        self.error_message = Some(format!("剪切板读取失败: {}", e));
+                    None => {
+                        self.error_message = Some("剪切板读取失败".to_string());
                     }
                 }
                 Task::none()
             }
 
             Message::PasteAndEnhance => {
-                if let Ok(mut clipboard) = arboard::Clipboard::new() {
-                    if let Ok(text) = clipboard.get_text() {
-                        self.input_content = text_editor::Content::with_text(&text);
-                        return Task::perform(async {}, |_| Message::EnhanceText);
-                    }
+                if let Some(text) = get_clipboard_text() {
+                    self.input_content = text_editor::Content::with_text(&text);
+                    return Task::perform(async {}, |_| Message::EnhanceText);
                 }
                 Task::none()
             }
@@ -497,6 +530,11 @@ impl App {
             self.nav_button(s.nav_settings, View::Settings),
             self.nav_button(s.nav_help, View::Help),
             horizontal_space(),
+            if let Some(ref msg) = self.clipboard_msg {
+                text(msg).size(13)
+            } else {
+                text("").size(13)
+            },
             container(
                 text(format!(
                     "{}: {}",
@@ -636,13 +674,34 @@ impl App {
                     .on_press(Message::CopyResult),
             ]
             .align_y(iced::Alignment::Center),
-            container(scrollable(
-                container(text(&self.result_text).size(13))
-                    .padding(12)
-                    .width(Length::Fill)
-            ))
-            .height(180)
-            .style(container::bordered_box),
+            container(
+                column![
+                    if self.explanation_text.is_empty() {
+                        column![]
+                    } else {
+                        column![text(&self.explanation_text).size(13)]
+                    },
+                    if self.result_text.text().is_empty() {
+                        container(column![])
+                    } else {
+                        container(
+                            text_editor(&self.result_text)
+                                .on_action(Message::ResultAction)
+                                .padding(12)
+                                .height(Length::Fill),
+                        )
+                        .height(180)
+                        .style(container::bordered_box)
+                    },
+                    if self.tail_text.is_empty() {
+                        column![]
+                    } else {
+                        column![text(&self.tail_text).size(13)]
+                    }
+                ]
+                .spacing(8)
+            )
+            .width(Length::Fill),
         ]
         .spacing(8);
 
@@ -838,7 +897,7 @@ impl App {
         let s = self.s();
 
         // Compact result area
-        let result_area: Element<Message> = if !self.result_text.is_empty() {
+        let result_area: Element<Message> = if !self.result_text.text().is_empty() {
             column![
                 row![
                     text(s.result).size(13),
@@ -849,13 +908,30 @@ impl App {
                         .on_press(Message::CopyResult),
                 ]
                 .align_y(iced::Alignment::Center),
-                container(scrollable(
-                    container(text(&self.result_text).size(13))
-                        .padding(8)
-                        .width(Length::Fill)
-                ))
-                .height(Length::Fill) // Fill remaining space
-                .style(container::bordered_box),
+                container(
+                    column![
+                        if self.explanation_text.is_empty() {
+                            column![]
+                        } else {
+                            column![text(&self.explanation_text).size(13)]
+                        },
+                        container(
+                            text_editor(&self.result_text)
+                                .on_action(Message::ResultAction)
+                                .padding(8)
+                                .height(Length::Fill)
+                        )
+                        .height(Length::Fill) // Fill remaining space
+                        .style(container::bordered_box),
+                        if self.tail_text.is_empty() {
+                            column![]
+                        } else {
+                            column![text(&self.tail_text).size(13)]
+                        }
+                    ]
+                    .spacing(4)
+                )
+                .height(Length::Fill)
             ]
             .spacing(4)
             .into()
@@ -948,4 +1024,32 @@ impl App {
             .spacing(8)
             .into()
     }
+}
+
+// Helper to get clipboard text, prioritizing wl-paste on Linux
+fn get_clipboard_text() -> Option<String> {
+    // 1. Try wl-paste on Linux first
+    #[cfg(target_os = "linux")]
+    {
+        use std::process::Command;
+
+        let output = Command::new("wl-paste").arg("--no-newline").output();
+
+        if let Ok(output) = output {
+            if output.status.success() {
+                if let Ok(text) = String::from_utf8(output.stdout) {
+                    return Some(text);
+                }
+            }
+        }
+    }
+
+    // 2. Fallback to arboard
+    if let Ok(mut clipboard) = arboard::Clipboard::new() {
+        if let Ok(text) = clipboard.get_text() {
+            return Some(text);
+        }
+    }
+
+    None
 }
