@@ -1,9 +1,10 @@
 //! Main iced application
 
-use crate::api::{CheckResult, EnhanceResult, GeminiClient};
-use crate::config::{load_config, save_config, AppConfig};
-use crate::core::PresetManager;
+use crate::config::{load_config, save_config};
 use crate::ui::i18n::Language;
+use akkurate_core::api::{CheckResult, EnhanceResult, GeminiClient};
+use akkurate_core::config::AppConfig;
+use akkurate_core::core::PresetManager;
 use iced::widget::{
     button, column, container, horizontal_rule, horizontal_space, pick_list, row, scrollable, text,
     text_editor, text_input, vertical_space,

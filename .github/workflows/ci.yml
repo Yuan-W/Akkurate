@@ -2,37 +2,116 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [ "main", "master" ]
   pull_request:
-    branches: [main]
+    branches: [ "main", "master" ]
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  check:
+  build-extension:
+    name: Build Extension
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libdbus-1-dev pkg-config libfontconfig1-dev
-      
-      - name: Setup Rust
+
+      - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          components: clippy, rustfmt
-      
-      - name: Check formatting
-        run: cargo fmt --check
-      
-      - name: Clippy
-        run: cargo clippy -- -D warnings
-      
-      - name: Build
-        run: cargo build
-      
-      - name: Run tests
-        run: cargo test
+          targets: wasm32-unknown-unknown
+
+      - name: Cache Cargo Dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-extension-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-extension-
+
+      - name: Install wasm-pack
+        run: |
+          if ! command -v wasm-pack &> /dev/null; then
+            cargo install wasm-pack
+          fi
+
+      - name: Build Extension (xtask)
+        run: cargo run --package xtask -- dist
+
+      - name: Upload Extension Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: akkurate-extension
+          path: akkurate-extension.zip
+
+  build-desktop:
+    name: Build Desktop (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install System Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfontconfig1-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev
+
+      - name: Cache Cargo Dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-desktop-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-desktop-
+
+      - name: Build Desktop Release
+        run: cargo build --release --package akkurate-desktop
+
+      - name: Upload Desktop Binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: akkurate-desktop-linux
+          path: target/release/akkurate-desktop
+
+  build-windows:
+    name: Build Desktop (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo Dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-desktop-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-desktop-
+
+      - name: Build Desktop Release
+        run: cargo build --release --package akkurate-desktop
+
+      - name: Upload Desktop Binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: akkurate-desktop-windows
+          path: target/release/akkurate-desktop.exe

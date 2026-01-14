@@ -1,0 +1,31 @@
+[package]
+name = "akkurate-desktop"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+akkurate-core = { path = "../core" }
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# GUI (Wayland-native)
+iced = { version = "0.13", features = ["tokio"] }
+
+# System integration
+arboard = "3"           # Clipboard
+# ksni is linux only, see target dependencies
+
+# Config
+directories = "5"
+toml = "0.8" # For parsing config in desktop impl
+
+# Utilities
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+anyhow = "1"
+clap = { version = "4.5.53", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+ksni = "0.2"

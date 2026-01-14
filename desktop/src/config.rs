@@ -1,45 +1,9 @@
-//! Application settings and configuration
-
+//! Configuration I/O for Desktop
+use akkurate_core::config::AppConfig;
 use anyhow::{Context, Result};
 use directories::ProjectDirs;
-use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-
-/// Application configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AppConfig {
-    pub api: ApiConfig,
-    pub preferences: Preferences,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ApiConfig {
-    pub gemini_key: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Preferences {
-    pub default_preset: String,
-    pub theme: String,
-    pub language: String,
-    pub auto_copy: bool,
-}
-
-impl Default for AppConfig {
-    fn default() -> Self {
-        Self {
-            api: ApiConfig {
-                gemini_key: String::new(),
-            },
-            preferences: Preferences {
-                default_preset: "casual".to_string(),
-                theme: "dark".to_string(),
-                language: "chinese".to_string(),
-                auto_copy: true,
-            },
-        }
-    }
-}
+// Wait, I removed config_path from core. I need to implement it here.
 
 /// Get the configuration directory path
 pub fn config_dir() -> Option<PathBuf> {
