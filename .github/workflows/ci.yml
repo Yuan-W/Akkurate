@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches: [ "main", "master" ]
+    tags: [ "v*" ]
   pull_request:
     branches: [ "main", "master" ]
 
@@ -61,7 +62,7 @@ jobs:
       - name: Install System Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libfontconfig1-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev
+          sudo apt-get install -y libfontconfig1-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libdbus-1-dev pkg-config
 
       - name: Cache Cargo Dependencies
         uses: actions/cache@v3
@@ -115,3 +116,52 @@ jobs:
         with:
           name: akkurate-desktop-windows
           path: target/release/akkurate-desktop.exe
+
+  release:
+    name: Create Release
+    needs: [build-extension, build-desktop, build-windows]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download Extension
+        uses: actions/download-artifact@v4
+        with:
+          name: akkurate-extension
+          path: assets
+      
+      - name: Download Linux Desktop
+        uses: actions/download-artifact@v4
+        with:
+          name: akkurate-desktop-linux
+          path: assets
+      
+      - name: Download Windows Desktop
+        uses: actions/download-artifact@v4
+        with:
+          name: akkurate-desktop-windows
+          path: assets
+
+      - name: Prepare Assets
+        run: |
+          cd assets
+          # Rename and archive Linux binary
+          mv akkurate-desktop akkurate
+          tar -czvf akkurate-linux-x86_64.tar.gz akkurate
+          
+          # Rename and archive Windows binary (if needed, or just release exe)
+          # Let's keep it simple and just release the exe as 'akkurate-windows-x86_64.exe' or zip it
+          mv akkurate-desktop.exe akkurate.exe
+          zip akkurate-windows-x86_64.zip akkurate.exe
+
+          # Extension is already a zip
+      
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            assets/akkurate-extension.zip
+            assets/akkurate-linux-x86_64.tar.gz
+            assets/akkurate-windows-x86_64.zip
+          generate_release_notes: true
